@@ -7,8 +7,6 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon-192.png">
 <title>Nightwing Tracker</title>
 <style>
   :root {
@@ -251,6 +249,25 @@
   .protein-stepper { display: flex; align-items: center; gap: 6px; }
   .step-val { font-family: var(--mono); font-size: 14px; min-width: 50px; text-align: center; }
 
+  /* Home alternative (rain plan) — basketball days */
+  .alt-block {
+    border: 1px dashed var(--border-mid); border-radius: 6px;
+    background: rgba(200, 255, 0, 0.02); overflow: hidden;
+  }
+  .alt-block[open] { border-color: var(--accent-30); }
+  .alt-summary {
+    list-style: none; cursor: pointer; padding: 14px;
+    display: flex; flex-direction: column; gap: 3px; position: relative;
+  }
+  .alt-summary::-webkit-details-marker { display: none; }
+  .alt-summary-title { font-family: var(--display); font-size: 14px; font-weight: 900; letter-spacing: 1px; color: var(--accent); }
+  .alt-summary-sub { font-family: var(--mono); font-size: 9px; color: var(--text-label); letter-spacing: 0.5px; }
+  .alt-chevron { position: absolute; right: 14px; top: 16px; color: var(--text-dim); font-size: 11px; transition: transform 0.2s; }
+  .alt-block[open] .alt-chevron { transform: rotate(180deg); }
+  .alt-intro { font-family: var(--body); font-size: 11px; color: var(--text-dim); line-height: 1.5; padding: 0 14px 4px; }
+  .alt-block .ex-card { margin: 10px 10px 0; }
+  .alt-block .ex-card:last-child { margin-bottom: 12px; }
+
   /* Exercise cards */
   .ex-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
   .ex-header { display: flex; align-items: center; gap: 12px; }
@@ -491,6 +508,18 @@ const PHASES = [
 
 const DAY_NAMES = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
 
+// Home conditioning circuit — the rain-plan stand-in for a basketball session.
+// Surfaces (collapsed) on basketball days so a washed-out / no-court day still has a real session.
+const HOME_CARDIO = [
+  { name: 'Jump rope',           target: '5 × 2 min', tip: 'Light on the balls of the feet. ~30s rest between rounds.' },
+  { name: 'Burpees',             target: '4 × 12',    tip: 'Chest to floor, explode up. The full-body conditioning hit.' },
+  { name: 'Skater jumps',        target: '4 × 20',    tip: "Bound side to side, stick each landing — basketball's lateral pattern." },
+  { name: 'Jump squats',         target: '4 × 12',    tip: 'Max height, soft landing, straight into the next rep.' },
+  { name: 'Mountain climbers',   target: '4 × 40',    tip: 'Hips low, drive the knees fast. Cardio plus core.' },
+  { name: 'High-knee sprints',   target: '4 × 30s',   tip: 'On the spot or across the field — pump the arms, full intensity.' },
+  { name: 'Plank shoulder taps', target: '3 × 20',    tip: 'Hips dead still — no rocking. Core + shoulder-stability finisher.' },
+];
+
 const WORKOUTS = {
   1: { type: 'PUSH + CORE', active: true, exercises: [
     { name: 'Push-ups',            target: '4 × 12–15',  tip: 'Slow eccentric. At 4×15 → diamond push-ups.' },
@@ -501,7 +530,7 @@ const WORKOUTS = {
     { name: 'Plank',               target: '3 × 45–60s', tip: 'RKC plank — squeeze everything.' },
     { name: 'Hanging knee raises', target: '3 × 10–12',  tip: 'No swing. Progress → toes-to-bar.' },
   ]},
-  2: { type: 'BASKETBALL', active: false, exercises: [
+  2: { type: 'BASKETBALL', active: false, alt: HOME_CARDIO, exercises: [
     { name: 'Basketball',     target: '45–60 min', tip: 'Push pace in second half.' },
     { name: 'Cooldown walk',  target: '15 min',    tip: 'Loose, easy. Get HR down.' },
   ]},
@@ -527,7 +556,7 @@ const WORKOUTS = {
     { name: 'Calf raises',            target: '3 × 20',     tip: 'Single-leg progression.' },
     { name: 'V-ups',                  target: '3 × 12',     tip: 'Slow & controlled.' },
   ]},
-  6: { type: 'BASKETBALL', active: false, exercises: [
+  6: { type: 'BASKETBALL', active: false, alt: HOME_CARDIO, exercises: [
     { name: 'Basketball', target: '60–90 min', tip: 'Bring it.' },
   ]},
   0: { type: 'REST + WEIGH-IN', active: false, exercises: [
@@ -617,6 +646,13 @@ const SCALING = {
   'Broad jumps':            { easier: 'Short, controlled, reset each rep',        harder: 'Max distance + immediate rebound' },
   'Calf raises':            { easier: 'Two legs on flat ground',                  harder: 'Single-leg off a step + hold a DB' },
   'V-ups':                  { easier: 'Tuck-ups or dead bugs',                    harder: 'Hold a weight, or slow the tempo' },
+  // HOME — Conditioning (basketball rain-plan)
+  'Jump rope':              { easier: 'Slower tempo or fewer rounds',             harder: 'Add high-knees or double-unders' },
+  'Burpees':                { easier: 'Step back instead of jumping',             harder: 'Add a tuck-jump at the top' },
+  'Skater jumps':           { easier: 'Smaller bound, tap the foot down',         harder: 'Wider bound + hold the single-leg landing' },
+  'Mountain climbers':      { easier: 'Slower pace, hands on a chair',            harder: 'Faster tempo + cross-body knee drive' },
+  'High-knee sprints':      { easier: 'March in place with high knees',           harder: 'Full sprint pace + hard arm drive' },
+  'Plank shoulder taps':    { easier: 'Knees down, slower taps',                  harder: 'Feet narrower + slower tempo' },
   // GYM — Push
   'Flat barbell bench':     { easier: 'Dumbbell bench, or push-ups',              harder: 'Pause on the chest / heavier, lower reps' },
   'Standing overhead press':{ easier: 'Seated DB shoulder press',                 harder: 'Strict tempo + pause, or add weight' },
@@ -647,8 +683,22 @@ function sessionProgress() {
   const todayIdx = new Date().getDay();
   const w = currentWorkouts()[todayIdx];
   const done = (state.today.workout && state.today.workout.done) || {};
+  const countDone = list => list.filter(ex => done[ex.name]).length;
+
   const total = w.exercises.length;
-  const n = w.exercises.filter(ex => done[ex.name]).length;
+  const n = countDone(w.exercises);
+
+  // Basketball days carry a home rain-plan: the day completes via EITHER path,
+  // and the bar follows whichever set the user has actually started ticking.
+  if (w.alt && w.alt.length) {
+    const altTotal = w.alt.length;
+    const altN = countDone(w.alt);
+    const useAlt = altN > n;
+    const complete = (total > 0 && n === total) || (altTotal > 0 && altN === altTotal);
+    const bn = useAlt ? altN : n;
+    const bt = useAlt ? altTotal : total;
+    return { n: bn, total: bt, pct: bt ? (bn / bt) * 100 : 0, complete };
+  }
   return { n, total, pct: total ? (n / total) * 100 : 0, complete: total > 0 && n === total };
 }
 
@@ -671,7 +721,7 @@ const isoDate = () => new Date().toISOString().slice(0, 10);
 function defaultDay() {
   const meals = {};
   Object.keys(MEAL_PLAN).forEach(k => {
-    meals[k] = { eaten: false, notes: '', protein: MEAL_PLAN[k].protein };
+    meals[k] = { eaten: false, notes: '', protein: MEAL_PLAN[k].protein, cal: MEAL_PLAN[k].cal };
   });
   return {
     weight: '', sleep: '', steps: '', water: 0, waist: '',
@@ -698,6 +748,13 @@ function loadAll() {
       const parsed = JSON.parse(todayRaw);
       const dd = defaultDay();
       state.today = { ...dd, ...parsed, meals: { ...dd.meals, ...(parsed.meals || {}) } };
+      // Back-compat: older saved days predate per-meal calories — backfill from the plan.
+      Object.keys(dd.meals).forEach(k => {
+        const m = state.today.meals[k];
+        if (!m) return;
+        if (m.cal == null || isNaN(Number(m.cal))) m.cal = MEAL_PLAN[k].cal;
+        if (m.protein == null || isNaN(Number(m.protein))) m.protein = MEAL_PLAN[k].protein;
+      });
       if (!state.today.workout) state.today.workout = dd.workout;
       if (!state.today.workout.exercises) state.today.workout.exercises = {};
       if (!state.today.workout.done) state.today.workout.done = {};
@@ -769,9 +826,9 @@ function proteinTotal() {
 }
 
 function calTotal() {
-  return Object.entries(state.today.meals)
-    .filter(([_, m]) => m.eaten)
-    .reduce((s, [k, _]) => s + MEAL_PLAN[k].cal, 0);
+  return Object.values(state.today.meals)
+    .filter(m => m.eaten)
+    .reduce((s, m) => s + (Number(m.cal) || 0), 0);
 }
 
 function mealsEatenCount() {
@@ -913,7 +970,7 @@ function renderFood() {
             </div>
             <div class="meal-macros">
               <span class="meal-protein" data-protein-display="${key}">${m.protein}g</span>
-              <span class="meal-cal">${meal.cal} kcal</span>
+              <span class="meal-cal" data-cal-display="${key}">${m.cal} kcal</span>
             </div>
           </div>
           <div class="meal-default">${meal.default}</div>
@@ -927,6 +984,14 @@ function renderFood() {
               <button class="step-btn" data-meal-protein="${key}" data-delta="5">+</button>
             </div>
           </div>
+          <div class="protein-adj">
+            <span class="mini-label">ACTUAL CALORIES</span>
+            <div class="protein-stepper">
+              <button class="step-btn" data-meal-cal="${key}" data-delta="-50">−</button>
+              <span class="step-val" data-cal-stepper-val="${key}">${m.cal} kcal</span>
+              <button class="step-btn" data-meal-cal="${key}" data-delta="50">+</button>
+            </div>
+          </div>
         </section>
       `;
     }).join('')}
@@ -938,6 +1003,36 @@ function renderFood() {
 // ============================================================
 function formSearchUrl(name) {
   return 'https://www.youtube.com/results?search_query=' + encodeURIComponent(name + ' proper form technique');
+}
+
+// One exercise card — shared by the primary session and the home rain-plan.
+function exerciseCard(ex, i, isToday, doneMap, active) {
+  const t = state.today;
+  const log = isToday ? ((t.workout.exercises && t.workout.exercises[ex.name]) || '') : '';
+  const sc = SCALING[ex.name];
+  const isDone = isToday && !!doneMap[ex.name];
+  return `
+    <section class="ex-card ${isDone ? 'done' : ''}" data-ex-card="${escapeHtml(ex.name)}">
+      <div class="ex-header">
+        <span class="ex-num">${String(i + 1).padStart(2, '0')}</span>
+        <div style="flex:1;">
+          <div class="ex-name">${escapeHtml(ex.name)}</div>
+          <div class="ex-target">${escapeHtml(ex.target)}</div>
+        </div>
+        ${isToday ? `<button class="check ex-check ${isDone ? 'checked' : ''}" data-done="${escapeHtml(ex.name)}" aria-label="Mark done"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></button>` : ''}
+      </div>
+      <div class="ex-tip">${escapeHtml(ex.tip)}</div>
+      ${ex.sub ? `<div class="ex-sub">${ex.sub}</div>` : ''}
+      ${sc ? `<div class="ex-scale">
+        <div class="ex-scale-row"><span class="ex-scale-tag down">↓ EASIER</span><span class="ex-scale-text">${escapeHtml(sc.easier)}</span></div>
+        <div class="ex-scale-row"><span class="ex-scale-tag up">↑ HARDER</span><span class="ex-scale-text">${escapeHtml(sc.harder)}</span></div>
+      </div>` : ''}
+      ${active ? `<a class="ex-form-link" href="${formSearchUrl(ex.name)}" target="_blank" rel="noopener noreferrer">▶ WATCH FORM</a>` : ''}
+      ${isToday ? `<input type="text" class="ex-input" value="${escapeHtml(log)}"
+        data-exercise="${escapeHtml(ex.name)}"
+        placeholder="Log sets/reps · e.g. 15, 12, 10, 8">` : ''}
+    </section>
+  `;
 }
 
 function renderTrain() {
@@ -975,33 +1070,19 @@ function renderTrain() {
       ${gymDay ? '' : '<div style="font-family:var(--mono); font-size:9px; color:var(--text-faint); margin-top:8px; letter-spacing:1px;">Identical in HOME &amp; GYM — the split runs Mon · Wed · Fri.</div>'}
     </section>
 
-    ${workout.exercises.map((ex, i) => {
-      const log = isToday ? ((t.workout.exercises && t.workout.exercises[ex.name]) || '') : '';
-      const sc = SCALING[ex.name];
-      const isDone = isToday && !!doneMap[ex.name];
-      return `
-        <section class="ex-card ${isDone ? 'done' : ''}" data-ex-card="${escapeHtml(ex.name)}">
-          <div class="ex-header">
-            <span class="ex-num">${String(i + 1).padStart(2, '0')}</span>
-            <div style="flex:1;">
-              <div class="ex-name">${escapeHtml(ex.name)}</div>
-              <div class="ex-target">${escapeHtml(ex.target)}</div>
-            </div>
-            ${isToday ? `<button class="check ex-check ${isDone ? 'checked' : ''}" data-done="${escapeHtml(ex.name)}" aria-label="Mark done"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></button>` : ''}
-          </div>
-          <div class="ex-tip">${escapeHtml(ex.tip)}</div>
-          ${ex.sub ? `<div class="ex-sub">${ex.sub}</div>` : ''}
-          ${sc ? `<div class="ex-scale">
-            <div class="ex-scale-row"><span class="ex-scale-tag down">↓ EASIER</span><span class="ex-scale-text">${escapeHtml(sc.easier)}</span></div>
-            <div class="ex-scale-row"><span class="ex-scale-tag up">↑ HARDER</span><span class="ex-scale-text">${escapeHtml(sc.harder)}</span></div>
-          </div>` : ''}
-          ${workout.active ? `<a class="ex-form-link" href="${formSearchUrl(ex.name)}" target="_blank" rel="noopener noreferrer">▶ WATCH FORM</a>` : ''}
-          ${isToday ? `<input type="text" class="ex-input" value="${escapeHtml(log)}"
-            data-exercise="${escapeHtml(ex.name)}"
-            placeholder="Log sets/reps · e.g. 15, 12, 10, 8">` : ''}
-        </section>
-      `;
-    }).join('')}
+    ${workout.exercises.map((ex, i) => exerciseCard(ex, i, isToday, doneMap, workout.active)).join('')}
+
+    ${workout.alt ? `
+      <details class="alt-block">
+        <summary class="alt-summary">
+          <span class="alt-summary-title">⌂ CAN'T GET OUT? — HOME CARDIO PLAN</span>
+          <span class="alt-summary-sub">${workout.alt.length} movements · rain / no-court stand-in</span>
+          <span class="alt-chevron">▾</span>
+        </summary>
+        <div class="alt-intro">A bodyweight conditioning circuit to stand in for the basketball session — keeps the engine running and the legs explosive.${isToday ? ' Tick these instead; the bar follows whichever path you finish.' : ''}</div>
+        ${workout.alt.map((ex, i) => exerciseCard(ex, i, isToday, doneMap, true)).join('')}
+      </details>
+    ` : ''}
 
     ${isToday
       ? `<div id="session-status" class="session-status ${sess.complete ? 'complete' : ''}">
@@ -1455,6 +1536,22 @@ function bindEvents() {
     });
   });
 
+  // Meal calorie steppers
+  document.querySelectorAll('[data-meal-cal]').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.mealCal;
+      const delta = parseInt(el.dataset.delta, 10);
+      const newVal = Math.max(0, Number(state.today.meals[key].cal) + delta);
+      state.today.meals[key].cal = newVal;
+      const stepDisp = document.querySelector(`[data-cal-stepper-val="${key}"]`);
+      if (stepDisp) stepDisp.textContent = newVal + ' kcal';
+      const headDisp = document.querySelector(`[data-cal-display="${key}"]`);
+      if (headDisp) headDisp.textContent = newVal + ' kcal';
+      refreshMacroDisplays();
+      saveToday();
+    });
+  });
+
   // Exercise log inputs
   document.querySelectorAll('[data-exercise]').forEach(el => {
     el.addEventListener('input', e => {
@@ -1626,13 +1723,6 @@ document.getElementById('rest-timer').addEventListener('click', e => {
 // ============================================================
 loadAll();
 render();
-
-// Register service worker for offline use (silently ignored when opened as a local file)
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
-}
 </script>
 </body>
 </html>
