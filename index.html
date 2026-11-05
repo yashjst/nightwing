@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Nightwing Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root {
     --bg: #0a0a0a;
@@ -352,17 +354,17 @@
   @keyframes rtflash { 50% { opacity: 0.25; } }
   body.timer-open { padding-bottom: 132px; }
 
-  /* Mode toggle (HOME / GYM) */
+  /* Mode toggle (HOME / GYM 3-DAY / GYM 6-DAY) */
   .mode-toggle {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px;
     background: var(--bg-input); border: 1px solid var(--border);
     border-radius: 6px; padding: 4px;
   }
   .mode-btn {
     background: transparent; border: none; color: var(--text-dim);
-    padding: 10px 4px; border-radius: 4px;
-    font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 2px;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 2px; border-radius: 4px; white-space: nowrap;
+    font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
     transition: color 0.15s, background 0.15s;
   }
   .mode-btn svg { width: 13px; height: 13px; stroke: currentColor; stroke-width: 2; fill: none; }
@@ -613,14 +615,76 @@ const GYM_WORKOUTS = {
   0: WORKOUTS[0], // Rest + weigh-in
 };
 
-function currentWorkouts() {
-  return state.settings.mode === 'gym' ? GYM_WORKOUTS : WORKOUTS;
+// Gym 6-day — a strict superset of the 3-day plan: the SAME Mon PUSH / Wed PULL / Fri LEGS objects
+// (edit those once, both plans follow), with Tue / Thu / Sat as gym sessions. Sunday stays full rest.
+// Weekly shape: hard · hard · hard · EASY · hard · hard · REST — Thu is deliberately light so Fri legs stay fresh.
+const GYM6_WORKOUTS = {
+  ...GYM_WORKOUTS,
+  2: { type: 'LOWER · ATHLETIC', active: true, focus: 'power first · single-leg strength', exercises: [
+    { name: 'Box jumps',          target: '4 × 4',       tip: 'First, while fresh. Max intent every rep — land soft, step down, full reset.',
+      sub: '<b>No box?</b> → broad jumps, same sets.' },
+    { name: 'Barbell hip thrust', target: '4 × 8–10',    tip: 'Upper back on the bench, chin tucked, 1s squeeze at lockout.',
+      sub: '<b>Setup awkward?</b> → DB hip thrust or loaded glute bridge.' },
+    { name: 'DB step-ups',        target: '3 × 8/leg',   tip: 'Knee-height box. Drive through the front heel — no push off the back foot.' },
+    { name: 'Single-leg RDL',     target: '3 × 8/leg',   tip: 'DB in the opposite hand, hips square, long spine. Balance is part of the work.' },
+    { name: 'Lateral lunges',     target: '3 × 8/side',  tip: 'Sit back into the hip, other leg straight. The basketball cut pattern.' },
+    { name: 'Leg curls',          target: '3 × 10–12',   tip: 'Slow 3s lowering. Trains the hamstring job RDLs miss — knee flexion.',
+      sub: '<b>No machine?</b> → Nordic curl negatives, feet anchored.' },
+    { name: 'Bike sprints',       target: '6 × 20s',     tip: 'All-out, ~100s easy spin between. Two minutes of real work, done.',
+      sub: '<b>No bike free?</b> → rower sprints, same timing.' },
+  ]},
+  4: { type: 'ENGINE + CORE', active: true, focus: 'easy aerobic · keeps Fri legs fresh', exercises: [
+    { name: 'Incline treadmill walk', target: '30–40 min', tip: '10–12% incline, ~5 km/h, hands off the rails. Zone 2 — full sentences possible.',
+      sub: '<b>Treadmill taken?</b> → cross-trainer or easy bike, same time.' },
+    { name: 'Farmer carries',     target: '4 × 40 m',        tip: 'Heaviest DBs you can walk tall with. Shoulders packed, no lean.' },
+    { name: 'Hollow body hold',   target: '3 × 30–45s',      tip: 'Lower back glued down. The gymnast core staple.' },
+    { name: 'Pallof press',       target: '3 × 10/side',     tip: 'Press out and resist the twist — anti-rotation, no waist-widening.',
+      sub: '<b>No cable?</b> → band anchored at chest height.' },
+    { name: 'Side plank',         target: '3 × 30–45s/side', tip: 'Hips high, one straight line. Unloaded oblique work keeps the waist tight.' },
+    { name: 'Dead hang',          target: '3 × 30–60s',      tip: 'Shoulders relaxed. Builds pull-up grip and decompresses the spine.' },
+    { name: 'Mobility flow',      target: '10 min',          tip: '90/90 hips, couch stretch, T-spine rotations, wall slides.' },
+  ]},
+  6: { type: 'UPPER · V-TAPER', active: true, focus: 'width + shoulders · controlled reps', exercises: [
+    { name: 'Neutral-grip pull-ups', target: '4 × 6–10',  tip: 'Parallel handles. Stop 1–2 reps shy of failure. Add load past 4 × 10.',
+      sub: '<b>Under 6 reps?</b> → lat pulldown for the remaining sets.' },
+    { name: 'Low-incline DB press',  target: '3 × 10–12', tip: '15–30° bench. Upper chest builds the shoulder-line shelf.' },
+    { name: 'Cable lateral raises',  target: '4 × 12–15', tip: 'One arm at a time, cable behind you — tension to the very bottom. Top width mover.',
+      sub: '<b>No cable?</b> → DB lean-away lateral raises.' },
+    { name: 'Straight-arm pulldown', target: '3 × 12–15', tip: 'Arms long, sweep the bar to the thighs. Lats only — no biceps.',
+      sub: '<b>No cable?</b> → DB pullover on a flat bench.' },
+    { name: 'Rear-delt flyes',       target: '3 × 15–20', tip: 'Bent over, light DBs, pinkies lead, 1s squeeze.',
+      sub: '<b>Reverse pec-deck free?</b> → use it.' },
+    { name: 'Incline DB curls',      target: '3 × 10–12', tip: '45° bench, arms hang behind — full stretch on the long head.' },
+    { name: 'Triceps pushdown',      target: '3 × 12–15', tip: 'Elbows pinned, full lockout, slow return.',
+      sub: '<b>No cable?</b> → DB kickbacks or close-grip push-ups.' },
+  ]},
+};
+
+// The plans the mode toggle switches between. 'gym' keeps its stored id so saved settings stay valid.
+const MODES = [
+  { id: 'home', label: 'HOME',      plan: WORKOUTS },
+  { id: 'gym',  label: 'GYM 3-DAY', plan: GYM_WORKOUTS },
+  { id: 'gym6', label: 'GYM 6-DAY', plan: GYM6_WORKOUTS },
+];
+
+function currentModeDef() {
+  return MODES.find(m => m.id === state.settings.mode) || MODES[0];
 }
 
-const isGymOnlyDay = (idx) => [1, 3, 5].includes(idx); // days that actually differ between modes
+function currentWorkouts() {
+  return currentModeDef().plan;
+}
 
-// Easier / harder scaling per movement. Keyed by exact exercise name (covers both
-// home and gym; "Calf raises" is shared). Conditioning/rest items are omitted on purpose.
+// Which OTHER plans run this exact session on this weekday (shared objects) — drives the "same in…" hints.
+function sharedLabel(idx) {
+  const cur = currentModeDef();
+  const others = MODES.filter(m => m.id !== cur.id && m.plan[idx] === cur.plan[idx]).map(m => m.label);
+  if (!others.length) return '';
+  return others.length === MODES.length - 1 ? 'same in every mode' : 'same in ' + others.join(' & ');
+}
+
+// Easier / harder scaling per movement. Keyed by exact exercise name (covers every
+// plan; "Calf raises" / "Hollow body hold" are shared). Rest/mobility items are omitted on purpose.
 const SCALING = {
   // HOME — Push
   'Push-ups':               { easier: 'Incline (hands on a table) or knees down', harder: 'Diamond → archer → one-arm progression' },
@@ -676,6 +740,28 @@ const SCALING = {
   'Walking lunges':         { easier: 'Bodyweight, shorter stride',               harder: 'Heavier DBs + longer stride' },
   'Ab wheel rollout':       { easier: 'From the knees, short range',              harder: 'Full range → standing rollout' },
   'Cable woodchoppers':     { easier: 'Lighter, or band',                         harder: 'Heavier + slower, full rotation' },
+  // GYM 6-DAY — Tue lower · athletic
+  'Box jumps':              { easier: 'Lower box, or jump squats',                harder: 'Higher box, or seated box jumps' },
+  'Barbell hip thrust':     { easier: 'Bodyweight or DB glute bridge',            harder: 'Heavier + 2s pause at lockout' },
+  'DB step-ups':            { easier: 'Lower box, bodyweight',                    harder: 'Higher box + heavier DBs, slow lowering' },
+  'Single-leg RDL':         { easier: 'Kickstand stance, or hold a support',      harder: 'Heavier DB + slow 3s lowering' },
+  'Lateral lunges':         { easier: 'Shorter step, bodyweight',                 harder: 'Goblet-hold a DB + deeper sit' },
+  'Leg curls':              { easier: 'Lighter, both legs',                       harder: 'Single-leg + slow 3s eccentric' },
+  'Bike sprints':           { easier: '4 rounds, or 15s efforts',                 harder: '8 rounds + more resistance' },
+  // GYM 6-DAY — Thu engine + core
+  'Incline treadmill walk': { easier: 'Lower incline (5–8%), or flat brisk walk', harder: 'Steeper (12–15%), or 45 min' },
+  'Farmer carries':         { easier: 'Lighter DBs, shorter distance',            harder: 'Heavier, or one-arm suitcase carry' },
+  'Pallof press':           { easier: 'Lighter, stand closer to the anchor',      harder: 'Heavier + 3s hold at full extension' },
+  'Side plank':             { easier: 'Bottom knee down',                         harder: 'Top leg raised, or longer holds' },
+  'Dead hang':              { easier: 'Feet lightly on a box',                    harder: 'Longer holds → active hang → one-arm' },
+  // GYM 6-DAY — Sat upper · V-taper
+  'Neutral-grip pull-ups':  { easier: 'Band-assisted, or lat pulldown',           harder: 'Add a belt/DB + 1s pause at the top' },
+  'Low-incline DB press':   { easier: 'Lighter, or flat DB press',                harder: 'Slow 3s eccentric + pause at the bottom' },
+  'Cable lateral raises':   { easier: 'Lighter, or both arms with DBs',           harder: 'Slow 3s lowering + pause at the top' },
+  'Straight-arm pulldown':  { easier: 'Lighter, shorter range',                   harder: 'Heavier + 1s squeeze at the thighs' },
+  'Rear-delt flyes':        { easier: 'Lighter, chest supported on a bench',      harder: 'Slow tempo + 2s hold at the top' },
+  'Incline DB curls':       { easier: 'Steeper bench (less stretch), lighter',    harder: 'Slow 3s eccentric' },
+  'Triceps pushdown':       { easier: 'Lighter, or band pushdowns',               harder: 'Single-arm + slow eccentric' },
 };
 
 // Live completion for TODAY's session in the current mode (drives the progress bar + stats).
@@ -895,13 +981,13 @@ function renderToday() {
       <div class="card-title-row">
         <span class="card-title">TODAY'S TRAINING</span>
         <div style="display:flex; gap:6px; align-items:center;">
-          <span class="mode-tag ${state.settings.mode === 'gym' ? 'gym' : ''}">${(state.settings.mode || 'home').toUpperCase()}</span>
+          <span class="mode-tag ${currentModeDef().id !== 'home' ? 'gym' : ''}">${currentModeDef().label}</span>
           <span class="badge">${DAY_NAMES[dayIdx]}</span>
         </div>
       </div>
       <div class="workout-hero" style="margin-top:14px;">
         <div class="workout-type">${workout.type}</div>
-        <div class="workout-count">${workout.exercises.length} movements${isGymOnlyDay(dayIdx) ? '' : ' · same in both modes'}</div>
+        <div class="workout-count">${workout.exercises.length} movements${sharedLabel(dayIdx) ? ' · ' + sharedLabel(dayIdx) : ''}</div>
       </div>
       ${(() => {
         const s = sessionProgress();
@@ -1041,7 +1127,8 @@ function renderTrain() {
   const sel = (state.trainDay == null) ? todayIdx : state.trainDay;
   const workout = currentWorkouts()[sel];
   const isToday = sel === todayIdx;
-  const gymDay = isGymOnlyDay(sel);
+  const mode = currentModeDef();
+  const shared = sharedLabel(sel);
   const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // Mon-first
   const doneMap = (t.workout && t.workout.done) || {};
   const sess = sessionProgress();
@@ -1059,15 +1146,15 @@ function renderTrain() {
     <div style="height:12px"></div>
     <section class="card hero">
       <div style="font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--text-dim);">
-        ${DAY_NAMES[sel]}${isToday ? ' · TODAY' : ' · PREVIEW'} · ${workout.exercises.length} MOVEMENTS · ${(state.settings.mode || 'home').toUpperCase()}
+        ${DAY_NAMES[sel]}${isToday ? ' · TODAY' : ' · PREVIEW'} · ${workout.exercises.length} MOVEMENTS · <span style="white-space:nowrap">${mode.label}</span>
       </div>
       <div style="font-family:var(--display); font-size:30px; font-weight:900; letter-spacing:2px; color:var(--accent); margin-top:8px; line-height:1;">
         ${workout.type}
       </div>
       ${workout.active
-        ? '<div style="font-family:var(--mono); font-size:10px; color:var(--text-dim); margin-top:8px; letter-spacing:1px;">' + (state.settings.mode === 'gym' ? 'heavy compounds · strength focus' : '60–90 min · form before reps') + '</div>'
+        ? '<div style="font-family:var(--mono); font-size:10px; color:var(--text-dim); margin-top:8px; letter-spacing:1px;">' + (workout.focus || (mode.id === 'home' ? '60–90 min · form before reps' : 'heavy compounds · strength focus')) + '</div>'
         : ''}
-      ${gymDay ? '' : '<div style="font-family:var(--mono); font-size:9px; color:var(--text-faint); margin-top:8px; letter-spacing:1px;">Identical in HOME &amp; GYM — the split runs Mon · Wed · Fri.</div>'}
+      ${shared ? '<div style="font-family:var(--mono); font-size:9px; color:var(--text-faint); margin-top:8px; letter-spacing:1px;">' + shared.charAt(0).toUpperCase() + shared.slice(1) + ' — switching plans won\'t change this day.</div>' : ''}
     </section>
 
     ${workout.exercises.map((ex, i) => exerciseCard(ex, i, isToday, doneMap, workout.active)).join('')}
@@ -1266,12 +1353,11 @@ function macroBar(label, value, target, unit, big, id) {
 }
 
 function modeToggle() {
-  const m = state.settings.mode || 'home';
+  const m = currentModeDef().id;
   const home = '<svg viewBox="0 0 24 24"><path d="M3 9.5 12 3l9 6.5M5 8.5V20h5v-6h4v6h5V8.5"/></svg>';
   const dumbbell = '<svg viewBox="0 0 24 24"><path d="M3 9v6M6 6v12M18 6v12M21 9v6M6 12h12"/></svg>';
   return `<div class="mode-toggle">
-    <button class="mode-btn ${m === 'home' ? 'active' : ''}" data-mode="home">${home} HOME</button>
-    <button class="mode-btn ${m === 'gym' ? 'active' : ''}" data-mode="gym">${dumbbell} GYM</button>
+    ${MODES.map(md => `<button class="mode-btn ${m === md.id ? 'active' : ''}" data-mode="${md.id}">${md.id === 'home' ? home : dumbbell} ${md.label}</button>`).join('')}
   </div>`;
 }
 
@@ -1571,11 +1657,11 @@ function bindEvents() {
     });
   });
 
-  // Mode toggle (HOME / GYM) — persists, so it remembers your last pick
+  // Mode toggle (HOME / GYM 3-DAY / GYM 6-DAY) — persists, so it remembers your last pick
   document.querySelectorAll('[data-mode]').forEach(el => {
     el.addEventListener('click', () => {
       const mode = el.dataset.mode;
-      if (state.settings.mode === mode) return;
+      if (!MODES.some(m => m.id === mode) || state.settings.mode === mode) return;
       state.settings.mode = mode;
       saveSettings();
       render();
@@ -1723,6 +1809,14 @@ document.getElementById('rest-timer').addEventListener('click', e => {
 // ============================================================
 loadAll();
 render();
+</script>
+<script>
+  // PWA — register the cache-first service worker. Relative path so it works under GitHub's /repo/ subpath.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function (e) { console.error('SW registration failed', e); });
+    });
+  }
 </script>
 </body>
 </html>
