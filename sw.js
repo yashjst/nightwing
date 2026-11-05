@@ -1,6 +1,6 @@
 // Nightwing PWA service worker — offline-first app shell.
 // Bump CACHE when you update index.html so devices pull the new version.
-const CACHE = 'nightwing-v2';
+const CACHE = 'nightwing-v3';
 const ASSETS = [
   './',
   'index.html',
