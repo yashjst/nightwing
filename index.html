@@ -158,6 +158,7 @@
     font-weight: 700;
   }
   .chip svg { width: 11px; height: 11px; stroke: currentColor; stroke-width: 3; fill: none; }
+  .chip-when { font-size: 8px; letter-spacing: 1px; opacity: 0.6; margin-left: 2px; }
 
   /* Workout hero */
   .workout-hero {
@@ -250,6 +251,28 @@
   }
   .protein-stepper { display: flex; align-items: center; gap: 6px; }
   .step-val { font-family: var(--mono); font-size: 14px; min-width: 50px; text-align: center; }
+  .meal-note {
+    font-family: var(--mono); font-size: 10px; color: var(--warn);
+    margin-top: 8px; padding-left: 34px; line-height: 1.5; letter-spacing: 0.3px;
+  }
+  .daytype-hint {
+    font-family: var(--mono); font-size: 9px; color: var(--text-faint);
+    letter-spacing: 0.5px; line-height: 1.6; text-align: center; margin-top: 8px;
+  }
+
+  /* Indian swaps reference (Food tab) */
+  .swap-group { padding: 2px 14px 10px; }
+  .swap-head {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; font-weight: 700;
+    color: var(--accent); margin: 10px 0 4px;
+  }
+  .swap-row {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    padding: 7px 0; border-top: 1px solid var(--border);
+  }
+  .swap-name { font-family: var(--body); font-size: 11px; color: var(--text); line-height: 1.4; }
+  .swap-amt { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+  .swap-val { font-family: var(--mono); font-size: 10px; color: var(--text-dim); white-space: nowrap; text-align: right; }
 
   /* Home alternative (rain plan) — basketball days */
   .alt-block {
@@ -503,7 +526,7 @@ const ACCENT = '#C8FF00';
 
 const PHASES = [
   { id: 1, name: 'FOUNDATION',     weeks: '1–2',   range: '98 → 96', cal: 2300, protein: 170, water: 8 },
-  { id: 2, name: 'FAT LOSS',       weeks: '3–18',  range: '96 → 82', cal: 1950, protein: 180, water: 10 },
+  { id: 2, name: 'FAT LOSS',       weeks: '3–18',  range: '96 → 82', cal: 2100, protein: 160, water: 10 },
   { id: 3, name: 'ATHLETIC BUILD', weeks: '19–28', range: '82 → 76', cal: 2200, protein: 180, water: 10 },
   { id: 4, name: 'REFINEMENT',     weeks: '29+',   range: '74–76',   cal: 2500, protein: 160, water: 8 },
 ];
@@ -788,29 +811,111 @@ function sessionProgress() {
   return { n, total, pct: total ? (n / total) * 100 : 0, complete: total > 0 && n === total };
 }
 
-const MEAL_PLAN = {
-  breakfast:   { name: 'Breakfast',    time: '07:00', default: '3 whole eggs + 4 whites + 2 multigrain rotis + black coffee', protein: 40, cal: 500 },
-  midMorning:  { name: 'Mid-morning',  time: '11:00', default: 'Hung curd + fruit + 8 almonds',                                 protein: 15, cal: 250 },
-  lunch:       { name: 'Lunch',        time: '14:00', default: '150g chicken or 75g soya + roti/rice + dal + sabzi + salad',  protein: 50, cal: 600 },
-  preWorkout:  { name: 'Pre-workout',  time: '17:30', default: 'Banana + black coffee',                                        protein: 2,  cal: 120 },
-  postWorkout: { name: 'Post-workout', time: '19:30', default: '1 scoop whey + small banana',                                  protein: 25, cal: 200 },
-  dinner:      { name: 'Dinner',       time: '20:30', default: 'Chicken / eggs / paneer + sabzi + 1 roti',                     protein: 40, cal: 400 },
+// Two meals + one light snack. Both day types share the slot keys, so switching menus keeps the day's log.
+// Each preset sums to the Phase 2 targets (2,100 kcal / ~160 g protein) and sits on the stepper
+// increments (50 kcal / 5 g), so ticking a meal logs it exactly as planned.
+const VEG_DAYS = [2, 4]; // Tue, Thu — no chicken, no eggs
+const MEAL_PLANS = {
+  nonveg: {
+    meal1: { name: 'Meal 1', time: 'LATE MORNING / LUNCH',     default: 'Egg bhurji, omelette or anda curry (3 whole eggs + 6 whites, 1 tsp oil) · 1 katori dal · 2 rotis · 1 katori sabzi · big salad · chaach', protein: 65, cal: 950 },
+    snack: { name: 'Snack',  time: '~17:00 · BEFORE TRAINING', default: 'Protein lassi: 200 g curd + 1 scoop whey + creatine · roasted jeera, kala namak', protein: 30, cal: 250 },
+    meal2: { name: 'Meal 2', time: 'DINNER · AFTER TRAINING',  default: 'Chicken curry, bhuna or tikka (180 g boneless raw, or 300 g curry cut; 1 tsp oil) · 1 katori dal · 2 rotis + ½ katori rice · 1 katori sabzi · big salad', protein: 65, cal: 900 },
+  },
+  veg: {
+    meal1: { name: 'Meal 1', time: 'LATE MORNING / LUNCH',     default: 'Soya chunk curry or keema (75 g dry, 1 tsp oil) · 1 katori dal · 2 rotis · 1 katori sabzi · big salad · chaach', protein: 65, cal: 900 },
+    snack: { name: 'Snack',  time: '~17:00 · BEFORE TRAINING', default: 'Protein lassi: 200 g curd + 2 scoops whey + creatine · roasted jeera, kala namak', protein: 55, cal: 350 },
+    meal2: { name: 'Meal 2', time: 'DINNER · AFTER TRAINING',  default: 'Paneer bhurji or tikka (100 g paneer, ½ tsp oil) · 1 katori dal · 2 rotis · 1 katori sabzi · big salad', protein: 40, cal: 850 },
+  },
+};
+const DAY_TYPES = [
+  { id: 'nonveg', label: 'NON-VEG DAY' },
+  { id: 'veg',    label: 'VEG DAY' },
+];
+
+// Basketball days add 1 banana pre-game, and the calorie target rises with it —
+// only in modes that actually play basketball that day (GYM 6-DAY trains Tue/Sat in the gym).
+const BASKETBALL_BONUS_KCAL = 100;
+
+// The old six-meal plan. A save from before the update folds into the new slots, so its totals don't move.
+const LEGACY_MEALS = {
+  breakfast:   { slot: 'meal1', cal: 500, protein: 40 },
+  midMorning:  { slot: 'meal1', cal: 250, protein: 15 },
+  lunch:       { slot: 'meal1', cal: 600, protein: 50 },
+  preWorkout:  { slot: 'snack', cal: 120, protein: 2 },
+  postWorkout: { slot: 'snack', cal: 200, protein: 25 },
+  dinner:      { slot: 'meal2', cal: 400, protein: 40 },
 };
 
-const SUPPLEMENTS = ['Creatine', 'Multi', 'Omega-3', 'Magnesium', 'D3'];
+// Equal-swap reference for the Food tab. nonveg: hidden on veg days · vegOnly: shown only on veg days.
+const SWAPS = [
+  { head: 'PROTEIN BLOCK · ~40 g protein · raw/dry weight · 1 tsp oil', items: [
+    { name: 'Chicken breast — curry, bhuna, tikka, keema',   amt: '180 g boneless',     val: '280 kcal',  nonveg: true },
+    { name: 'Chicken curry cut, skinless leg/thigh',         amt: '300 g with bone',    val: '305 kcal',  nonveg: true },
+    { name: 'Eggs — bhurji, omelette, anda curry',           amt: '3 whole + 6 whites', val: '375 kcal',  nonveg: true },
+    { name: 'Mutton, lean — skim the tari · once a week',    amt: '300 g with bone',    val: '315 kcal',  nonveg: true },
+    { name: 'Kaleji-pota (liver + gizzard) · once a week',   amt: '220 g',              val: '300 kcal',  nonveg: true },
+    { name: 'Soya chunks or granules — curry, keema, pulao', amt: '75 g dry',           val: '325 kcal' },
+    { name: 'Paneer, homemade from double-toned milk',       amt: '~185 g',             val: '~395 kcal' },
+    { name: 'Malai paneer + soya granules bhurji',           amt: '75 g + 50 g dry',    val: '430 kcal' },
+    { name: 'Tofu, firm — if available',                     amt: '250 g',              val: '~425 kcal' },
+  ]},
+  { head: 'CARBS · each ≈ 2 rotis (~200 kcal)', items: [
+    { name: '1 katori rice, or 1 roti + ½ katori rice',      val: '175–190 kcal' },
+    { name: '1 bajra or makka roti (~55 g flour, no ghee)',  val: '~200 kcal' },
+    { name: '1 katori dalia, poha or upma',                  val: '180–200 kcal' },
+    { name: '3 idlis',                                       val: '~175 kcal' },
+    { name: '200 g shakarkandi or aloo',                     val: '~175 kcal' },
+    { name: '1 litti (no ghee) or 1 aloo paratha',           val: '≈ 3 rotis' },
+  ]},
+  { head: 'DAL OR CURD · one per meal', items: [
+    { name: '1 katori thick dal — arhar, moong, masoor, urad, chana',   val: '160 kcal · 9 g' },
+    { name: '2 katori rajma, chole, kala chana or lobia — drop 1 roti', val: '~290 kcal · ~17 g' },
+    { name: '1 katori sprouts chaat — moong or kala chana',             val: '140 kcal · 9 g' },
+    { name: '1 katori curd or raita',                                   val: '120 kcal · 6 g' },
+    { name: '1 katori hung curd',                                       val: '~190 kcal · ~11 g' },
+  ]},
+  { head: 'SNACK · ~250 kcal · ~30 g protein', items: [
+    { name: 'Protein lassi: 200 g curd + 1 scoop whey',                   val: 'default' },
+    { name: 'Veg days: make it 2 scoops',                                 val: '+120 kcal · +24 g', vegOnly: true },
+    { name: 'Whey in water + 1 fruit — guava, papaya, apple, kinnow',     val: '~195 kcal' },
+    { name: 'Whey + 30 g roasted makhana or 25 g roasted chana',          val: '210–225 kcal' },
+    { name: '2 boiled eggs + 4 boiled whites + 1 fruit',                  val: '~285 kcal', nonveg: true },
+  ]},
+];
+
+// Chips run in time order. Ids are the stored keys — unchanged from the old list, so past days still read.
+const SUPPLEMENTS = [
+  { id: 'Multi',     when: 'MEAL 1' },
+  { id: 'Omega-3',   when: 'MEAL 1+2' },
+  { id: 'D3',        when: 'MEAL 1' },
+  { id: 'Creatine',  when: 'SNACK' },
+  { id: 'Magnesium', when: 'BED' },
+];
 
 // ============================================================
 // STATE
 // ============================================================
-const isoDate = () => new Date().toISOString().slice(0, 10);
+// Local calendar date, not UTC: in IST, toISOString() still reads yesterday until 05:30,
+// which filed early-morning weigh-ins under the previous day.
+const isoDate = () => {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+};
 
-function defaultDay() {
+function isDayType(v) { return v === 'veg' || v === 'nonveg'; }
+
+function dayTypeFor(date) {
+  return VEG_DAYS.includes(date.getDay()) ? 'veg' : 'nonveg';
+}
+
+function defaultDay(dayType = dayTypeFor(new Date())) {
+  const plan = MEAL_PLANS[dayType];
   const meals = {};
-  Object.keys(MEAL_PLAN).forEach(k => {
-    meals[k] = { eaten: false, notes: '', protein: MEAL_PLAN[k].protein, cal: MEAL_PLAN[k].cal };
+  Object.keys(plan).forEach(k => {
+    meals[k] = { eaten: false, notes: '', protein: plan[k].protein, cal: plan[k].cal };
   });
   return {
-    weight: '', sleep: '', steps: '', water: 0, waist: '',
+    weight: '', sleep: '', steps: '', water: 0, waist: '', dayType,
     supplements: {}, meals, workout: { completed: false, exercises: {}, done: {} }, notes: '',
   };
 }
@@ -832,15 +937,9 @@ function loadAll() {
     const todayRaw = localStorage.getItem(TODAY_KEY());
     if (todayRaw) {
       const parsed = JSON.parse(todayRaw);
-      const dd = defaultDay();
-      state.today = { ...dd, ...parsed, meals: { ...dd.meals, ...(parsed.meals || {}) } };
-      // Back-compat: older saved days predate per-meal calories — backfill from the plan.
-      Object.keys(dd.meals).forEach(k => {
-        const m = state.today.meals[k];
-        if (!m) return;
-        if (m.cal == null || isNaN(Number(m.cal))) m.cal = MEAL_PLAN[k].cal;
-        if (m.protein == null || isNaN(Number(m.protein))) m.protein = MEAL_PLAN[k].protein;
-      });
+      const dayType = isDayType(parsed.dayType) ? parsed.dayType : dayTypeFor(new Date());
+      const dd = defaultDay(dayType);
+      state.today = { ...dd, ...parsed, dayType, meals: mergeMeals(dd.meals, parsed.meals || {}, MEAL_PLANS[dayType]) };
       if (!state.today.workout) state.today.workout = dd.workout;
       if (!state.today.workout.exercises) state.today.workout.exercises = {};
       if (!state.today.workout.done) state.today.workout.done = {};
@@ -848,6 +947,35 @@ function loadAll() {
     const settingsRaw = localStorage.getItem('settings');
     if (settingsRaw) state.settings = { ...state.settings, ...JSON.parse(settingsRaw) };
   } catch (e) { console.error('Load failed', e); }
+}
+
+// Rebuilds today's meals on the current slots.
+//  · per-meal cal/protein missing on an older save → backfilled from the plan
+//  · a save from the old six-meal plan → each ticked meal folds into its new slot (cal/protein summed,
+//    notes joined), so the day's totals don't move; un-ticked legacy meals are dropped
+function mergeMeals(defaults, saved, plan) {
+  const num = (v, d) => (v == null || v === '' || isNaN(Number(v))) ? d : Number(v);
+  const meals = {};
+  Object.keys(defaults).forEach(k => {
+    const m = saved[k] ? { ...defaults[k], ...saved[k] } : { ...defaults[k] };
+    m.cal = num(m.cal, plan[k].cal);
+    m.protein = num(m.protein, plan[k].protein);
+    meals[k] = m;
+  });
+  const folded = {};
+  Object.entries(saved).forEach(([k, m]) => {
+    const legacy = LEGACY_MEALS[k];
+    if (!legacy || !m || !m.eaten || saved[legacy.slot]) return;
+    const slot = meals[legacy.slot];
+    if (!folded[legacy.slot]) {
+      folded[legacy.slot] = true;
+      Object.assign(slot, { eaten: true, cal: 0, protein: 0, notes: '' });
+    }
+    slot.cal += num(m.cal, legacy.cal);
+    slot.protein += num(m.protein, legacy.protein);
+    if (m.notes) slot.notes = slot.notes ? slot.notes + ' · ' + m.notes : m.notes;
+  });
+  return meals;
 }
 
 let saveTimer = null;
@@ -925,6 +1053,29 @@ function currentPhase() {
   return PHASES[state.settings.phase - 1] || PHASES[1];
 }
 
+function currentMealPlan() {
+  return MEAL_PLANS[isDayType(state.today.dayType) ? state.today.dayType : dayTypeFor(new Date())];
+}
+
+function mealCount() {
+  return Object.keys(currentMealPlan()).length;
+}
+
+// Basketball in the active training mode today (GYM 6-DAY swaps Tue/Sat for gym sessions).
+function isBasketballToday() {
+  const w = currentWorkouts()[new Date().getDay()];
+  return !!(w && w.type === 'BASKETBALL');
+}
+
+function calTarget() {
+  return currentPhase().cal + (isBasketballToday() ? BASKETBALL_BONUS_KCAL : 0);
+}
+
+function suppChipInner(s, active) {
+  return (active ? '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg> ' : '') +
+    s.id + '<span class="chip-when">' + s.when + '</span>';
+}
+
 // ============================================================
 // HEADER + DATE
 // ============================================================
@@ -968,11 +1119,8 @@ function renderToday() {
       <div class="card-title">SUPPLEMENTS</div>
       <div class="chip-row">
         ${SUPPLEMENTS.map(s => {
-          const active = t.supplements[s];
-          return `<button class="chip ${active ? 'active' : ''}" data-supp="${s}">
-            ${active ? '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>' : ''}
-            ${s}
-          </button>`;
+          const active = !!t.supplements[s.id];
+          return `<button class="chip ${active ? 'active' : ''}" data-supp="${s.id}">${suppChipInner(s, active)}</button>`;
         }).join('')}
       </div>
     </section>
@@ -1004,11 +1152,11 @@ function renderToday() {
     <section class="card">
       <div class="card-title-row">
         <span class="card-title">NUTRITION</span>
-        <span class="data-pill" id="meals-count">${mealsEatenCount()}/6 meals</span>
+        <span class="data-pill" id="meals-count">${mealsEatenCount()}/${mealCount()} meals</span>
       </div>
       ${macroBar('PROTEIN', proteinTotal(), phase.protein, 'g', false, 'today-protein')}
       <div style="height:14px"></div>
-      ${macroBar('CALORIES', calTotal(), phase.cal, 'kcal', false, 'today-cal')}
+      ${macroBar('CALORIES', calTotal(), calTarget(), 'kcal', false, 'today-cal')}
     </section>
 
     <section class="card">
@@ -1024,13 +1172,22 @@ function renderToday() {
 function renderFood() {
   const t = state.today;
   const phase = currentPhase();
+  const plan = currentMealPlan();
+  const bball = isBasketballToday();
 
   return `
+    <div>
+      <div class="mode-toggle">
+        ${DAY_TYPES.map(d => `<button class="mode-btn ${t.dayType === d.id ? 'active' : ''}" data-daytype="${d.id}">${d.label}</button>`).join('')}
+      </div>
+      <div class="daytype-hint">Tue &amp; Thu default to veg — no chicken, no eggs.<br>Switching resets the meals not yet ticked.</div>
+    </div>
+
     <section class="card">
-      <div class="card-title">DAILY TOTALS · PHASE ${phase.id}</div>
+      <div class="card-title">DAILY TOTALS · PHASE ${phase.id}${bball ? ' · BASKETBALL +' + BASKETBALL_BONUS_KCAL + ' KCAL' : ''}</div>
       ${macroBar('PROTEIN', proteinTotal(), phase.protein, 'g', true, 'food-protein')}
       <div style="height:12px"></div>
-      ${macroBar('CALORIES', calTotal(), phase.cal, 'kcal', true, 'food-cal')}
+      ${macroBar('CALORIES', calTotal(), calTarget(), 'kcal', true, 'food-cal')}
       <div style="height:16px"></div>
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <span class="mini-label">WATER</span>
@@ -1042,7 +1199,7 @@ function renderFood() {
       </div>
     </section>
 
-    ${Object.entries(MEAL_PLAN).map(([key, meal]) => {
+    ${Object.entries(plan).map(([key, meal]) => {
       const m = t.meals[key];
       return `
         <section class="meal-card ${m.eaten ? 'eaten' : ''}" data-meal-card="${key}">
@@ -1060,6 +1217,7 @@ function renderFood() {
             </div>
           </div>
           <div class="meal-default">${meal.default}</div>
+          ${key === 'snack' && bball ? '<div class="meal-note">BASKETBALL DAY · + 1 banana 45–60 min pre-game → tap +50 kcal twice</div>' : ''}
           <input type="text" class="text-input" value="${escapeHtml(m.notes)}"
             data-meal-notes="${key}" placeholder="What you actually ate (optional)">
           <div class="protein-adj">
@@ -1081,6 +1239,35 @@ function renderFood() {
         </section>
       `;
     }).join('')}
+
+    ${swapsBlock(t.dayType)}
+  `;
+}
+
+// Collapsed equal-swap reference under the meals; veg days hide the non-veg options.
+function swapsBlock(dayType) {
+  const show = it => (!it.nonveg || dayType !== 'veg') && (!it.vegOnly || dayType === 'veg');
+  return `
+    <details class="alt-block">
+      <summary class="alt-summary">
+        <span class="alt-summary-title">⇄ INDIAN SWAPS</span>
+        <span class="alt-summary-sub">${dayType === 'veg' ? 'veg options only today' : 'veg + non-veg options'} · swap within a group</span>
+        <span class="alt-chevron">▾</span>
+      </summary>
+      <div class="alt-intro">Every meal = 1 protein block + 1 dal or curd + carbs worth 2 rotis + sabzi and salad. Swap inside a group and the day stays on plan.</div>
+      ${SWAPS.map(g => `
+        <div class="swap-group">
+          <div class="swap-head">${g.head}</div>
+          ${g.items.filter(show).map(it => `
+            <div class="swap-row">
+              <div>
+                <div class="swap-name">${escapeHtml(it.name)}</div>
+                ${it.amt ? `<div class="swap-amt">${escapeHtml(it.amt)}</div>` : ''}
+              </div>
+              <div class="swap-val">${escapeHtml(it.val)}</div>
+            </div>`).join('')}
+        </div>`).join('')}
+    </details>
   `;
 }
 
@@ -1548,16 +1735,29 @@ function bindEvents() {
   // Supplement chips
   document.querySelectorAll('[data-supp]').forEach(el => {
     el.addEventListener('click', () => {
-      const s = el.dataset.supp;
-      state.today.supplements[s] = !state.today.supplements[s];
-      if (state.today.supplements[s]) {
-        el.classList.add('active');
-        el.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg> ' + s;
-      } else {
-        el.classList.remove('active');
-        el.innerHTML = s;
-      }
+      const s = SUPPLEMENTS.find(x => x.id === el.dataset.supp);
+      if (!s) return;
+      const on = !state.today.supplements[s.id];
+      state.today.supplements[s.id] = on;
+      el.classList.toggle('active', on);
+      el.innerHTML = suppChipInner(s, on);
       saveToday();
+    });
+  });
+
+  // Day type (Food) — veg / non-veg menu. Ticked meals keep what was logged; the rest take the new menu's values.
+  document.querySelectorAll('[data-daytype]').forEach(el => {
+    el.addEventListener('click', () => {
+      const type = el.dataset.daytype;
+      if (!isDayType(type) || state.today.dayType === type) return;
+      state.today.dayType = type;
+      const plan = MEAL_PLANS[type];
+      Object.keys(plan).forEach(k => {
+        const m = state.today.meals[k];
+        if (m && !m.eaten) { m.cal = plan[k].cal; m.protein = plan[k].protein; }
+      });
+      saveToday();
+      render();
     });
   });
 
@@ -1711,17 +1911,18 @@ function refreshMacroDisplays() {
       f.classList.toggle('over', p > phase.protein);
     }
   });
+  const ct = calTarget();
   ['today-cal', 'food-cal'].forEach(id => {
     const v = document.querySelector(`[data-macro-val="${id}"]`);
     const f = document.querySelector(`[data-macro-fill="${id}"]`);
-    if (v) v.innerHTML = c + '<span class="macro-target">/' + phase.cal + ' kcal</span>';
+    if (v) v.innerHTML = c + '<span class="macro-target">/' + ct + ' kcal</span>';
     if (f) {
-      f.style.width = Math.min(100, (c / phase.cal) * 100) + '%';
-      f.classList.toggle('over', c > phase.cal);
+      f.style.width = Math.min(100, (c / ct) * 100) + '%';
+      f.classList.toggle('over', c > ct);
     }
   });
   const mc = document.getElementById('meals-count');
-  if (mc) mc.textContent = eaten + '/6 meals';
+  if (mc) mc.textContent = eaten + '/' + mealCount() + ' meals';
 }
 
 // ============================================================
